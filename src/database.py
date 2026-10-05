@@ -1,194 +1,127 @@
-from datetime import datetime, timezone
+"""Supabase storage shared by every source and job."""
+
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from supabase import create_client
 
-from src.config import (
-    SUPABASE_URL,
-    SUPABASE_SECRET_KEY,
-)
+from src.config import SUPABASE_SECRET_KEY, SUPABASE_URL
+
+TABLE = "radar_items"
 
 
-# ============================================================
-# SUPABASE CLIENT
-# ============================================================
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
 
 @lru_cache(maxsize=1)
 def get_client():
-    """
-    Tạo một Supabase client duy nhất
-    cho toàn bộ process.
-    """
-
-    if (
-        not SUPABASE_URL
-        or not SUPABASE_SECRET_KEY
-    ):
-        raise RuntimeError(
-            "Thiếu SUPABASE_URL "
-            "hoặc SUPABASE_SECRET_KEY."
-        )
-
-    return create_client(
-        SUPABASE_URL,
-        SUPABASE_SECRET_KEY,
-    )
+    if not SUPABASE_URL or not SUPABASE_SECRET_KEY:
+        raise RuntimeError("Thiếu SUPABASE_URL hoặc SUPABASE_SECRET_KEY.")
+    return create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
 
 
-# ============================================================
-# ARTICLE EXISTS
-# ============================================================
-
-def article_exists(
-    url: str,
-) -> bool:
-
-    result = (
+def find_item(candidate):
+    rows = (
         get_client()
-        .table("articles")
-        .select("id")
-        .eq("url", url)
+        .table(TABLE)
+        .select("*")
+        .eq("url", candidate["url"])
         .limit(1)
         .execute()
+        .data
+        or []
     )
+    if not rows:
+        rows = (
+            get_client()
+            .table(TABLE)
+            .select("*")
+            .eq("source_platform", candidate["source_platform"])
+            .eq("external_id", candidate["external_id"])
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    return rows[0] if rows else None
 
-    return bool(
-        result.data
-    )
 
-
-# ============================================================
-# SAVE ARTICLE
-# ============================================================
-
-def save_article(
-    article: dict,
-):
-
+def observe_item(existing, candidate):
+    metadata = {**(existing.get("metadata") or {}), **candidate.get("metadata", {})}
     return (
         get_client()
-        .table("articles")
-        .upsert(
-            article,
-            on_conflict="url",
-        )
+        .table(TABLE)
+        .update({"metadata": metadata, "last_seen_at": utc_now()})
+        .eq("id", existing["id"])
         .execute()
     )
 
 
-# ============================================================
-# RECENT ARTICLES
-# ============================================================
-
-def get_recent_articles(
-    since_iso: str,
-    limit: int = 50,
-) -> list[dict]:
-    """
-    Giữ lại cho report/dashboard sau này.
-    """
-
-    result = (
+def save_item(candidate, analysis):
+    row = {
+        key: candidate.get(key)
+        for key in (
+            "source_platform",
+            "external_id",
+            "name",
+            "title",
+            "description",
+            "url",
+            "published_at",
+            "metadata",
+        )
+    }
+    row.update({key: value for key, value in analysis.items() if key != "relevant"})
+    # Duplicate races must not overwrite sent_at, saved or manual status.
+    return (
         get_client()
-        .table("articles")
+        .table(TABLE)
+        .upsert(row, on_conflict="url", ignore_duplicates=True)
+        .execute()
+    )
+
+
+def get_unsent_items(min_score=6.5, limit=200):
+    return (
+        get_client()
+        .table(TABLE)
         .select("*")
-        .gte(
-            "fetched_at",
-            since_iso,
-        )
-        .order(
-            "importance_score",
-            desc=True,
-        )
+        .is_("sent_at", "null")
+        .gte("final_score", min_score)
+        .order("final_score", desc=True)
+        .order("discovered_at")
         .limit(limit)
         .execute()
-    )
-
-    return (
-        result.data
+        .data
         or []
     )
 
 
-# ============================================================
-# UNSENT ARTICLES
-# ============================================================
-
-def get_unsent_articles(
-    min_score: float = 5.5,
-    limit: int = 10,
-) -> list[dict]:
-    """
-    Lấy các bài:
-
-    - chưa gửi Telegram
-    - score >= min_score
-
-    Không giới hạn 24 giờ.
-
-    Lý do:
-    nếu một ngày scheduler hoặc Telegram lỗi,
-    bài chưa gửi vẫn còn để hôm sau retry.
-    """
-
-    result = (
+def mark_sent(item_id):
+    return (
         get_client()
-        .table("articles")
-        .select("*")
-        .is_(
-            "sent_at",
-            "null",
-        )
-        .gte(
-            "importance_score",
-            min_score,
-        )
-        .order(
-            "importance_score",
-            desc=True,
-        )
-        .order(
-            "fetched_at",
-            desc=True,
-        )
-        .limit(limit)
+        .table(TABLE)
+        .update({"sent_at": utc_now()})
+        .eq("id", item_id)
         .execute()
     )
 
-    return (
-        result.data
-        or []
-    )
 
-
-# ============================================================
-# MARK SENT
-# ============================================================
-
-def mark_article_sent(
-    article_id: str,
-):
-    """
-    Chỉ gọi hàm này SAU KHI
-    Telegram gửi thành công.
-    """
-
-    sent_at = (
-        datetime.now(timezone.utc)
-        .isoformat()
-    )
-
-    return (
+def cleanup_items(min_score, max_score, days):
+    if days <= 0:
+        raise ValueError("Retention days phải lớn hơn 0.")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    query = (
         get_client()
-        .table("articles")
-        .update(
-            {
-                "sent_at": sent_at
-            }
-        )
-        .eq(
-            "id",
-            article_id,
-        )
-        .execute()
+        .table(TABLE)
+        .delete()
+        .eq("saved", False)
+        .neq("radar_status", "ADOPT")
+        .lt("discovered_at", cutoff)
     )
+    if min_score is not None:
+        query = query.gte("final_score", min_score)
+    if max_score is not None:
+        query = query.lt("final_score", max_score)
+    return len(query.execute().data or [])

@@ -1,47 +1,37 @@
-import os
-import socket
-from datetime import datetime, timezone
+"""Read-only connection checks; does not send Telegram messages or write rows."""
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import requests
-import urllib3.util.connection as urllib3_cn
 
-from google import genai
-from supabase import create_client
-from dotenv import load_dotenv
+from src.ai import get_client
+from src.config import GEMINI_MODEL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from src.database import TABLE
+from src.database import get_client as get_database
 
 
-urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
+def main():
+    response = get_client().models.generate_content(
+        model=GEMINI_MODEL, contents="Say OK"
+    )
+    if not response.text:
+        raise RuntimeError("Gemini returned empty text")
+    print("Gemini OK")
+    get_database().table(TABLE).select("id").limit(1).execute()
+    print("Supabase OK")
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        raise RuntimeError("Missing Telegram config")
+    response = requests.get(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getChat",
+        params={"chat_id": TELEGRAM_CHAT_ID},
+        timeout=30,
+    )
+    if response.status_code != 200 or not response.json().get("ok"):
+        raise RuntimeError("Telegram connection failed")
+    print("Telegram OK")
 
-load_dotenv()
 
-print("=== 1. Test Gemini ===")
-gemini_key = os.getenv("GEMINI_API_KEY")
-model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-client = genai.Client(api_key=gemini_key)
-response = client.interactions.create(
-    model=model,
-    input="Trả lời đúng một câu: Gemini connection OK",
-)
-print(response.output_text)
-
-print("\n=== 2. Test Supabase ===")
-sb = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SECRET_KEY"),
-)
-result = sb.table("articles").select("id").limit(1).execute()
-print("Supabase connection OK. Rows sample:", len(result.data or []))
-
-print("\n=== 3. Test Telegram ===")
-token = os.getenv("TELEGRAM_BOT_TOKEN")
-chat_id = os.getenv("TELEGRAM_CHAT_ID")
-resp = requests.post(
-    f"https://api.telegram.org/bot{token}/sendMessage",
-    json={
-        "chat_id": chat_id,
-        "text": f"✅ AI Tech Radar kết nối thành công lúc {datetime.now(timezone.utc).isoformat()}",
-    },
-    timeout=30,
-)
-resp.raise_for_status()
-print("Telegram connection OK.")
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -51,15 +52,50 @@ RSS_FEEDS = [
 ]
 
 TECH_KEYWORDS = [
-    "ai", "artificial intelligence", "llm", "language model", "agent", "agents",
-    "coding", "developer", "programming", "github", "openai", "anthropic",
-    "claude", "gemini", "deepmind", "hugging face", "transformer",
-    "machine learning", "deep learning", "inference", "training", "gpu",
-    "nvidia", "database", "postgres", "redis", "docker", "kubernetes",
-    "devops", "cloud", "security", "cybersecurity", "compiler", "linux",
-    "rust", "go", "python", "javascript", "typescript", "webassembly",
-    "mcp", "model context protocol", "cursor", "codex"
+    "ai",
+    "artificial intelligence",
+    "llm",
+    "language model",
+    "agent",
+    "agents",
+    "coding",
+    "developer",
+    "programming",
+    "github",
+    "openai",
+    "anthropic",
+    "claude",
+    "gemini",
+    "deepmind",
+    "hugging face",
+    "transformer",
+    "machine learning",
+    "deep learning",
+    "inference",
+    "training",
+    "gpu",
+    "nvidia",
+    "database",
+    "postgres",
+    "redis",
+    "docker",
+    "kubernetes",
+    "devops",
+    "cloud",
+    "security",
+    "cybersecurity",
+    "compiler",
+    "linux",
+    "rust",
+    "go",
+    "python",
+    "javascript",
+    "typescript",
+    "webassembly",
+    "mcp",
+    "model context protocol",
+    "cursor",
+    "codex",
 ]
 
 MAX_HN_STORIES = 35
-MAX_AI_ANALYSES_PER_RUN = 20

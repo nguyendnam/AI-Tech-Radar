@@ -1,24 +1,6 @@
-import time
+from datetime import datetime, timedelta, timezone
 
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
-
-from src.radar.database import (
-    get_unsent_radar_items,
-    mark_radar_sent,
-)
-
-from src.radar.profile import (
-    load_profile,
-)
-
-from src.telegram_sender import (
-    send_telegram,
-)
-
-
-VIETNAM_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
-
+VIETNAM_TZ = timezone(timedelta(hours=7), name="Asia/Ho_Chi_Minh")
 
 TYPE_ICONS = {
     "AI_MODEL": "🧠",
@@ -30,11 +12,12 @@ TYPE_ICONS = {
     "PACKAGE": "📦",
     "PAPER": "🔬",
     "SECURITY": "🔐",
+    "NEWS": "📰",
     "OTHER": "📡",
 }
 
-
 TYPE_LABELS = {
+    "NEWS": "TIN CÔNG NGHỆ",
     "AI_MODEL": "AI MODEL",
     "DEV_TOOL": "DEVELOPER TOOL",
     "GITHUB_REPO": "GITHUB REPOSITORY",
@@ -47,8 +30,8 @@ TYPE_LABELS = {
     "OTHER": "TECH SIGNAL",
 }
 
-
 TYPE_QUOTAS = {
+    "NEWS": 4,
     "AI_MODEL": 3,
     "DEV_TOOL": 3,
     "GITHUB_REPO": 4,
@@ -87,6 +70,7 @@ def publication_label(item_type: str) -> str:
     """Label ngày theo từng loại signal."""
 
     labels = {
+        "NEWS": "Công bố",
         "GITHUB_REPO": "Repo được tạo",
         "RELEASE": "Phát hành",
         "AI_MODEL": "Model xuất hiện",
@@ -141,10 +125,7 @@ def human_age(published_at: datetime) -> str:
     remaining_months = (days % 365) // 30
 
     if remaining_months > 0:
-        return (
-            f"khoảng {years} năm "
-            f"{remaining_months} tháng trước"
-        )
+        return f"khoảng {years} năm {remaining_months} tháng trước"
 
     return f"khoảng {years} năm trước"
 
@@ -161,21 +142,15 @@ def publication_text(item: dict) -> str:
 
     label = publication_label(item_type)
 
-    published_at = parse_datetime(
-        item.get("published_at")
-    )
+    published_at = parse_datetime(item.get("published_at"))
 
     if published_at is None:
-        discovered_at = parse_datetime(
-            item.get("discovered_at")
-        )
+        discovered_at = parse_datetime(item.get("discovered_at"))
 
         if discovered_at is None:
             return f"📅 {label}: Không xác định"
 
-        local_discovered = discovered_at.astimezone(
-            VIETNAM_TZ
-        )
+        local_discovered = discovered_at.astimezone(VIETNAM_TZ)
 
         return (
             f"📅 {label}: Không xác định\n"
@@ -183,9 +158,7 @@ def publication_text(item: dict) -> str:
             f"{local_discovered.strftime('%d/%m/%Y')}"
         )
 
-    local_published = published_at.astimezone(
-        VIETNAM_TZ
-    )
+    local_published = published_at.astimezone(VIETNAM_TZ)
 
     return (
         f"📅 {label}: "
@@ -205,6 +178,8 @@ def select_balanced(
     hoặc toàn GitHub repo.
     """
 
+    if total_limit <= 0:
+        return []
     counts = {}
     selected = []
 
@@ -247,46 +222,25 @@ def metadata_text(item: dict) -> str:
     lines = []
 
     if metadata.get("stars") is not None:
-        lines.append(
-            "⭐ GitHub stars: "
-            f"{metadata['stars']}"
-        )
+        lines.append(f"⭐ GitHub stars: {metadata['stars']}")
 
     if metadata.get("language"):
-        lines.append(
-            "💻 Language: "
-            f"{metadata['language']}"
-        )
+        lines.append(f"💻 Language: {metadata['language']}")
 
     if metadata.get("license"):
-        lines.append(
-            "📄 License: "
-            f"{metadata['license']}"
-        )
+        lines.append(f"📄 License: {metadata['license']}")
 
     if metadata.get("downloads") is not None:
-        lines.append(
-            "⬇️ Downloads: "
-            f"{metadata['downloads']}"
-        )
+        lines.append(f"⬇️ Downloads: {metadata['downloads']}")
 
     if metadata.get("likes") is not None:
-        lines.append(
-            "❤️ Likes: "
-            f"{metadata['likes']}"
-        )
+        lines.append(f"❤️ Likes: {metadata['likes']}")
 
     if metadata.get("pipeline_tag"):
-        lines.append(
-            "🧠 Pipeline: "
-            f"{metadata['pipeline_tag']}"
-        )
+        lines.append(f"🧠 Pipeline: {metadata['pipeline_tag']}")
 
     if metadata.get("tag"):
-        lines.append(
-            "🏷 Version: "
-            f"{metadata['tag']}"
-        )
+        lines.append(f"🏷 Version: {metadata['tag']}")
 
     return "\n".join(lines[:5])
 
@@ -307,10 +261,7 @@ def build_message(item: dict) -> str:
         "TECH SIGNAL",
     )
 
-    score = float(
-        item.get("final_score")
-        or 0
-    )
+    score = float(item.get("final_score") or 0)
 
     publication = publication_text(item)
     metadata = metadata_text(item)
@@ -318,122 +269,28 @@ def build_message(item: dict) -> str:
     metadata_block = ""
 
     if metadata:
-        metadata_block = (
-            "\n\n"
-            + metadata
-        )
+        metadata_block = "\n\n" + metadata
 
     return f"""
 {icon} {label}
 
-{item.get('title')}
+{item.get("title")}
 
 🎯 Score: {score:.1f}/10
-🧭 Radar: {item.get('radar_status', 'WATCH')}
-🏷 Chủ đề: {item.get('category', 'Other')}
+🧭 Radar: {item.get("radar_status", "WATCH")}
+🏷 Chủ đề: {item.get("category", "Other")}
 
 {publication}{metadata_block}
 
 📝 NÓ LÀ GÌ?
 
-{item.get('summary') or 'Chưa có tóm tắt.'}
+{item.get("summary") or "Chưa có tóm tắt."}
 
 💡 VÌ SAO ĐÁNG CHÚ Ý?
 
-{item.get('why_it_matters') or 'Chưa có phân tích.'}
+{item.get("why_it_matters") or "Chưa có phân tích."}
 
 🔗 XEM NGUỒN
 
-{item.get('url')}
+{item.get("url")}
 """.strip()
-
-
-def main():
-    profile = load_profile()
-
-    limits = profile.get(
-        "limits",
-        {},
-    )
-
-    min_score = float(
-        limits.get(
-            "min_digest_score",
-            6.5,
-        )
-    )
-
-    total_limit = int(
-        limits.get(
-            "radar_digest_items",
-            12,
-        )
-    )
-
-    rows = get_unsent_radar_items(
-        min_score=min_score,
-        limit=50,
-    )
-
-    selected = select_balanced(
-        rows,
-        total_limit,
-    )
-
-    if not selected:
-        print(
-            "[DONE] No unsent radar items."
-        )
-        return
-
-    send_telegram(
-        "📡 TECHNOLOGY RADAR\n\n"
-        f"{len(selected)} tín hiệu "
-        "công nghệ đáng chú ý hôm nay."
-    )
-
-    time.sleep(1)
-
-    sent = 0
-
-    for item in selected:
-        try:
-            send_telegram(
-                build_message(item)
-            )
-
-            # Chỉ đánh dấu sau khi Telegram gửi thành công.
-            mark_radar_sent(
-                item["id"]
-            )
-
-            sent += 1
-
-            print(
-                "[SEND] "
-                f"{item.get('item_type')} "
-                "| "
-                f"{item.get('title')}"
-            )
-
-        except Exception as exc:
-            # Không set sent_at.
-            # Lần chạy sau sẽ retry.
-            print(
-                "[ERROR] "
-                f"{item.get('title')}: "
-                f"{exc}"
-            )
-
-        time.sleep(1)
-
-    print(
-        "[DONE] "
-        f"Radar sent "
-        f"{sent}/"
-        f"{len(selected)}"
-    )
-
-
-if __name__ == "__main__":
-    main()

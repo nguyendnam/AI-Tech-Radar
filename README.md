@@ -1,222 +1,101 @@
 # AI Tech Radar
 
-AI Tech Radar là hệ thống cá nhân dùng để tự động theo dõi các tin tức và công nghệ mới trong lĩnh vực AI, lập trình và phần mềm.
-
-Mục tiêu của dự án là giúp người dùng không phải tự mở nhiều website mỗi ngày mà vẫn có thể biết được những nội dung đáng chú ý như:
-
-- Model AI mới
-- Công cụ hỗ trợ lập trình mới
-- Repository GitHub mới
-- Release mới của framework, thư viện và công nghệ
-- Package mới
-- Tin tức AI và công nghệ quan trọng
-
-Hệ thống tự động thu thập dữ liệu, dùng Gemini để phân tích và chấm điểm, lưu vào Supabase và gửi các nội dung đáng chú ý qua Telegram.
-
----
-
-## V1 — News Radar
-
-Phiên bản đầu tiên tập trung vào việc theo dõi các bài báo và tin tức công nghệ.
-
-Luồng hoạt động:
+Một hệ thống theo dõi tin tức, nghiên cứu, model AI, developer tool, repository, release và package. Mọi nguồn dùng chung pipeline, ngân sách AI, database và bản tin Telegram.
 
 ```text
-RSS / Hacker News
-        ↓
-     collect.py
-        ↓
-      Gemini
-        ↓
-     Supabase
-        ↓
-     Telegram
+RSS / arXiv / Hacker News / GitHub / Hugging Face / PyPI
+  → chuẩn hóa và khử trùng → xếp hạng → Gemini → radar_items → Telegram
 ```
 
-Các bài viết được AI:
+## Chạy local
 
-- Phân loại chủ đề
-- Chấm điểm mức độ quan trọng
-- Tóm tắt nội dung
-- Giải thích vì sao đáng chú ý
+Python 3.12+ và Node.js 22+ cho scheduler.
 
-Dữ liệu được lưu trong bảng:
+```sh
+python -m venv .venv
+# Windows: .venv\Scripts\Activate.ps1
+# Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Copy `.env.example` thành `.env`, điền Supabase secret/service-role key, Gemini API key và Telegram bot/chat ID. Không dùng Supabase anon key.
+
+```sh
+python collect.py
+python digest.py
+python cleanup.py
+```
+
+- `collect.py`: mọi nguồn dùng chung tối đa 25 lần gọi Gemini mỗi lượt, kể cả lần gọi thất bại. Chia lượt phân tích giữa các loại nội dung để model/repo không chiếm hết quota.
+- `digest.py`: một luồng bản tin, tối đa 12 mục; cân bằng loại nội dung. Chỉ cập nhật `sent_at` sau khi gửi thành công, mục thất bại được thử lại lần chạy sau.
+- `cleanup.py`: giữ mục dưới 7 điểm trong 30 ngày, từ 7 đến dưới 9 trong 90 ngày, từ 9 trở lên trong 365 ngày. Không xóa mục `saved=true` hoặc `ADOPT`. Có thể đổi qua `RETENTION_*_DAYS`.
+
+Tùy chỉnh từ khóa, watchlist, giới hạn và điểm trong `config/profile.yaml`. RSS và giới hạn Hacker News ở `src/config.py`. `GEMINI_MODEL` mặc định `gemini-3.5-flash-lite`, có thể đổi qua biến môi trường.
+
+## Supabase — chỉ một lần Run
+
+Đây là schema cài mới, không phải migration dữ liệu cũ.
+
+1. Tạm dừng lịch Worker trong thời gian đổi database và code. Sao lưu nếu cần giữ dữ liệu cũ.
+2. Xóa các bảng cũ của dự án: `radar_metrics` trước, rồi `articles` và `radar_items`.
+3. Mở `sql/schema.sql`, copy **toàn bộ file** vào Supabase SQL Editor và bấm **Run một lần**. File có transaction; không chạy các đoạn riêng lẻ.
+4. Chạy code mới và bật lại lịch.
+
+Chỉ có bảng `public.radar_items`, dùng chung cho mọi nguồn. Stars, forks, downloads, likes, source, version và các dữ kiện nguồn nằm trong `metadata` JSONB; không lưu lịch sử metrics riêng. Schema bao gồm unique URL, unique ID theo nguồn, check điểm/loại/status, index và RLS. `anon`/`authenticated` không có quyền; backend dùng secret/service-role key.
+
+File yêu cầu bảng mới chưa tồn tại. Chạy lại khi bảng tồn tại sẽ báo lỗi và rollback, không tự xóa dữ liệu của bạn.
+
+## GitHub Actions và Cloudflare
+
+Repository: https://github.com/nguyendnam/AI-Tech-Radar
+
+Trong GitHub repository, cấu hình Secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Có thể đặt repository Variable `GEMINI_MODEL`; workflow collect tự cung cấp `github.token` cho collector GitHub.
+
+Ba workflow dùng cùng concurrency group để collect/digest/cleanup không ghi dữ liệu chồng nhau. Giữ tên `collect-news.yml` để Worker đã deploy vẫn dispatch được, nhưng workflow này thu thập **tất cả** nguồn.
+
+Worker dùng `GITHUB_OWNER=nguyendnam`, `GITHUB_REPO=AI-Tech-Radar`, `GITHUB_REF=main` trong `scheduler/wrangler.jsonc`. Secret `GITHUB_TOKEN` của Worker phải có quyền Actions write cho repository này. Local collector chỉ cần quyền đọc repository công khai; có thể đặt token trong `.env` để tăng hạn mức API.
+
+Sau khi push code mới, deploy lại Worker để áp dụng cấu hình username trên Cloudflare:
+
+```sh
+cd scheduler
+npm ci
+npx wrangler secret put GITHUB_TOKEN
+npm run deploy
+```
+
+Nếu Worker đã có token hợp lệ thì không cần đặt lại. Việc đổi username không tự cập nhật vars trong Worker đã deploy.
+
+Lịch UTC+7: collect 06:45, digest 07:30, cleanup Chủ Nhật 03:00. Cloudflare cron dùng UTC.
+
+## Cấu trúc
 
 ```text
-articles
+collect.py / digest.py / cleanup.py  # entrypoints
+src/pipeline.py                    # orchestration chung
+src/collectors/                    # nguồn GitHub, Hugging Face, PyPI
+src/rss_collector.py, hn_collector.py
+src/ai.py, scoring.py               # đánh giá và xếp hạng
+src/database.py                    # một storage contract
+src/digest.py, telegram_sender.py   # render và gửi
+config/profile.yaml                # cấu hình ưu tiên và quota
+sql/schema.sql                     # toàn bộ database
+scheduler/                         # Cloudflare cron → GitHub Actions
 ```
 
-V1 giúp tự động hóa việc đọc tin, nhưng vẫn chủ yếu phụ thuộc vào các bài báo.
+## Kiểm tra
 
----
-
-## V2 — Technology Radar
-
-V2 mở rộng hệ thống từ một News Radar thành một Technology Radar.
-
-Ngoài bài báo, hệ thống có thể theo dõi trực tiếp:
-
-```text
-AI_MODEL
-DEV_TOOL
-GITHUB_REPO
-RELEASE
-LANGUAGE
-FRAMEWORK
-PACKAGE
+```sh
+pip install -r requirements-dev.txt
+ruff check src scripts tests collect.py digest.py cleanup.py
+ruff format --check src scripts tests collect.py digest.py cleanup.py
+python -m unittest discover -s tests -v
+node --test scheduler/src/index.test.js
+python scripts/test_connections.py
 ```
 
-Các nguồn chính gồm:
+Unit tests chạy offline, mock các dịch vụ ngoài. SQL được kiểm tra cú pháp bằng PostgreSQL parser; cần chạy thực tế trên Supabase để xác nhận quyền và môi trường của project. `test_connections.py` đọc bảng mới, kiểm tra Gemini và Telegram getChat, không gửi bản tin hay ghi database.
 
-```text
-GitHub
-Hugging Face
-PyPI
-RSS
-Hacker News
-arXiv
-```
+Nếu Telegram đã nhận tin nhưng kết nối timeout hoặc việc đánh dấu database thất bại, lần retry vẫn có thể gửi trùng; Telegram không hỗ trợ transaction chung với Supabase. Nguồn nào lỗi được ghi warning và nguồn khác tiếp tục; không có dữ liệu từ bất kỳ nguồn nào hoặc lỗi xử lý/lưu/gửi sẽ làm job thất bại.
 
-Luồng V2:
-
-```text
-GitHub / Hugging Face / PyPI / RSS / HN
-                    ↓
-                 Collector
-                    ↓
-                Pre-filter
-                    ↓
-                  Gemini
-                    ↓
-              radar_items
-                    ↓
-                 Telegram
-```
-
-Mỗi công nghệ được đánh giá theo nhiều tiêu chí như:
-
-```text
-Relevance
-Novelty
-Quality
-Momentum
-Importance
-```
-
-Sau đó hệ thống tính `final_score` để quyết định nội dung nào đáng lưu và đáng gửi.
-
----
-
-## Kiến trúc hiện tại
-
-```text
-Cloudflare Cron
-       ↓
-Cloudflare Worker
-       ↓
-GitHub Actions
-       ↓
-Python Collectors
-       ↓
-Gemini
-       ↓
-Supabase
-       ↓
-Telegram
-```
-
-Cloudflare chịu trách nhiệm chạy hệ thống theo lịch.
-
-GitHub Actions chạy các script thu thập, gửi bản tin và dọn dữ liệu.
-
-Supabase lưu dữ liệu.
-
-Telegram là nơi nhận các tin quan trọng.
-
----
-
-## Database
-
-Hệ thống hiện dùng hai bảng chính:
-
-```text
-articles
-```
-
-Lưu các bài báo và tin tức của V1.
-
-```text
-radar_items
-```
-
-Lưu các công nghệ của V2 như model, tool, repo, release và package.
-
-Ngoài ra có:
-
-```text
-radar_metrics
-```
-
-để lưu các chỉ số như stars, downloads hoặc likes phục vụ việc theo dõi xu hướng sau này.
-
----
-
-## Công nghệ sử dụng
-
-```text
-Python
-Gemini API
-Supabase
-Telegram Bot
-GitHub Actions
-Cloudflare Workers
-GitHub API
-Hugging Face
-PyPI
-RSS
-Hacker News
-```
-
----
-
-## Quá trình phát triển
-
-```text
-V1
-
-News
-↓
-Gemini
-↓
-Supabase
-↓
-Telegram
-```
-
-được nâng cấp thành:
-
-```text
-V2
-
-News
-+
-AI Models
-+
-Developer Tools
-+
-GitHub Repositories
-+
-Releases
-+
-Packages
-        ↓
-      Gemini
-        ↓
- Technology Radar
-        ↓
-     Supabase
-        ↓
-     Telegram
-```
-
-Mục tiêu cuối cùng của AI Tech Radar là trở thành một hệ thống theo dõi công nghệ cá nhân, giúp phát hiện sớm những công nghệ mới có thể hữu ích cho việc học tập, lập trình và xây dựng dự án.
+Gemini generate-content/JSON output: https://ai.google.dev/api/generate-content

@@ -1,6 +1,6 @@
 from huggingface_hub import HfApi
 
-from src.radar.profile import (
+from src.profile import (
     load_profile,
 )
 
@@ -14,7 +14,6 @@ def datetime_value(value):
         value,
         "isoformat",
     ):
-
         return value.isoformat()
 
     return str(value)
@@ -29,14 +28,12 @@ def collect_huggingface() -> list[dict]:
         {},
     )
 
-
     model_limit = int(
         limits.get(
             "hf_models",
             15,
         )
     )
-
 
     space_limit = int(
         limits.get(
@@ -45,21 +42,16 @@ def collect_huggingface() -> list[dict]:
         )
     )
 
-
     api = HfApi()
 
-
     results = []
-
 
     # ========================================================
     # MODELS
     # ========================================================
 
     try:
-
         try:
-
             models = list(
                 api.list_models(
                     sort="trending_score",
@@ -68,7 +60,6 @@ def collect_huggingface() -> list[dict]:
             )
 
         except Exception:
-
             # Nếu API/library version không hỗ trợ
             # trending_score thì fallback.
 
@@ -79,128 +70,76 @@ def collect_huggingface() -> list[dict]:
                 )
             )
 
-
         for model in models:
-
             model_id = model.id
-
 
             results.append(
                 {
-
-                    "source_platform":
-                        "huggingface",
-
-
-                    "external_id":
-                        f"model:{model_id}",
-
-
-                    "item_type_hint":
-                        "AI_MODEL",
-
-
-                    "name":
-                        model_id,
-
-
-                    "title":
-                        model_id,
-
-
-                    "description":
-                        (
-                            "Hugging Face model "
-                            "đang có tín hiệu đáng chú ý."
-                        ),
-
-
-                    "url":
-                        (
-                            "https://huggingface.co/"
-                            f"{model_id}"
-                        ),
-
-
-                    "published_at":
-                        datetime_value(
-                            getattr(
-                                model,
-                                "created_at",
-                                None,
-                            )
-                        ),
-
-
+                    "source_platform": "huggingface",
+                    "external_id": f"model:{model_id}",
+                    "item_type_hint": "AI_MODEL",
+                    "name": model_id,
+                    "title": model_id,
+                    "description": ("Hugging Face model đang có tín hiệu đáng chú ý."),
+                    "url": (f"https://huggingface.co/{model_id}"),
+                    "published_at": datetime_value(
+                        getattr(
+                            model,
+                            "created_at",
+                            None,
+                        )
+                    ),
                     "metadata": {
-
-                        "downloads":
-                            (
-                                getattr(
-                                    model,
-                                    "downloads",
-                                    0,
-                                )
-                                or 0
-                            ),
-
-                        "likes":
-                            (
-                                getattr(
-                                    model,
-                                    "likes",
-                                    0,
-                                )
-                                or 0
-                            ),
-
-                        "pipeline_tag":
+                        "downloads": (
                             getattr(
                                 model,
-                                "pipeline_tag",
-                                None,
-                            ),
-
-                        "trending_score":
-                            (
-                                getattr(
-                                    model,
-                                    "trending_score",
-                                    0,
-                                )
-                                or 0
-                            ),
-
-                        "tags":
-                            list(
-                                getattr(
-                                    model,
-                                    "tags",
-                                    [],
-                                )
-                                or []
-                            )[:30],
+                                "downloads",
+                                0,
+                            )
+                            or 0
+                        ),
+                        "likes": (
+                            getattr(
+                                model,
+                                "likes",
+                                0,
+                            )
+                            or 0
+                        ),
+                        "pipeline_tag": getattr(
+                            model,
+                            "pipeline_tag",
+                            None,
+                        ),
+                        "trending_score": (
+                            getattr(
+                                model,
+                                "trending_score",
+                                0,
+                            )
+                            or 0
+                        ),
+                        "tags": list(
+                            getattr(
+                                model,
+                                "tags",
+                                [],
+                            )
+                            or []
+                        )[:30],
                     },
                 }
             )
 
-
     except Exception as exc:
-
-        print(
-            "[WARN] Hugging Face models: "
-            f"{exc}"
-        )
-
+        print(f"[WARN] Hugging Face models: {exc}")
 
     # ========================================================
     # SPACES = TOOL / DEMO
     # ========================================================
 
     try:
-
         try:
-
             spaces = list(
                 api.list_spaces(
                     sort="trending_score",
@@ -209,7 +148,6 @@ def collect_huggingface() -> list[dict]:
             )
 
         except Exception:
-
             spaces = list(
                 api.list_spaces(
                     sort="likes",
@@ -217,101 +155,55 @@ def collect_huggingface() -> list[dict]:
                 )
             )
 
-
         for space in spaces:
-
             space_id = space.id
-
 
             results.append(
                 {
-
-                    "source_platform":
-                        "huggingface",
-
-
-                    "external_id":
-                        f"space:{space_id}",
-
-
-                    "item_type_hint":
-                        "DEV_TOOL",
-
-
-                    "name":
-                        space_id,
-
-
-                    "title":
-                        space_id,
-
-
-                    "description":
-                        (
-                            "Hugging Face Space / "
-                            "AI tool đang được chú ý."
-                        ),
-
-
-                    "url":
-                        (
-                            "https://huggingface.co/"
-                            f"spaces/{space_id}"
-                        ),
-
-
-                    "published_at":
-                        datetime_value(
+                    "source_platform": "huggingface",
+                    "external_id": f"space:{space_id}",
+                    "item_type_hint": "DEV_TOOL",
+                    "name": space_id,
+                    "title": space_id,
+                    "description": ("Hugging Face Space / AI tool đang được chú ý."),
+                    "url": (f"https://huggingface.co/spaces/{space_id}"),
+                    "published_at": datetime_value(
+                        getattr(
+                            space,
+                            "created_at",
+                            None,
+                        )
+                    ),
+                    "metadata": {
+                        "likes": (
                             getattr(
                                 space,
-                                "created_at",
-                                None,
+                                "likes",
+                                0,
                             )
+                            or 0
                         ),
-
-
-                    "metadata": {
-
-                        "likes":
-                            (
-                                getattr(
-                                    space,
-                                    "likes",
-                                    0,
-                                )
-                                or 0
-                            ),
-
-                        "trending_score":
-                            (
-                                getattr(
-                                    space,
-                                    "trending_score",
-                                    0,
-                                )
-                                or 0
-                            ),
-
-                        "tags":
-                            list(
-                                getattr(
-                                    space,
-                                    "tags",
-                                    [],
-                                )
-                                or []
-                            )[:30],
+                        "trending_score": (
+                            getattr(
+                                space,
+                                "trending_score",
+                                0,
+                            )
+                            or 0
+                        ),
+                        "tags": list(
+                            getattr(
+                                space,
+                                "tags",
+                                [],
+                            )
+                            or []
+                        )[:30],
                     },
                 }
             )
 
-
     except Exception as exc:
-
-        print(
-            "[WARN] Hugging Face spaces: "
-            f"{exc}"
-        )
-
+        print(f"[WARN] Hugging Face spaces: {exc}")
 
     return results

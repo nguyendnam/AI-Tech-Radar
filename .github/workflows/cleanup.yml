@@ -1,94 +1,26 @@
-name: Cleanup AI Tech Radar
-
-
+name: AI Tech Radar - cleanup
 on:
   workflow_dispatch:
-
-
 permissions:
   contents: read
-
-
 concurrency:
-  group: ai-tech-radar-cleanup
+  group: ai-tech-radar-pipeline
   cancel-in-progress: false
-
-
 jobs:
-
   cleanup:
-
     runs-on: ubuntu-24.04
-
     timeout-minutes: 15
-
-
     steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          cache: "pip"
-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-
-      # ======================================================
-      # NEWS CLEANUP
-      # ======================================================
-
-      - name: Cleanup News
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Run unified cleanup
         env:
-
-          SUPABASE_URL:
-            ${{ secrets.SUPABASE_URL }}
-
-          SUPABASE_SECRET_KEY:
-            ${{ secrets.SUPABASE_SECRET_KEY }}
-
-          RETENTION_LOW_DAYS:
-            "30"
-
-          RETENTION_MEDIUM_DAYS:
-            "90"
-
-          RETENTION_HIGH_DAYS:
-            "365"
-
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python cleanup.py
-
-
-      # ======================================================
-      # RADAR CLEANUP
-      # ======================================================
-
-      - name: Cleanup Technology Radar
-        env:
-
-          SUPABASE_URL:
-            ${{ secrets.SUPABASE_URL }}
-
-          SUPABASE_SECRET_KEY:
-            ${{ secrets.SUPABASE_SECRET_KEY }}
-
-          RADAR_RETENTION_LOW_DAYS:
-            "30"
-
-          RADAR_RETENTION_MEDIUM_DAYS:
-            "90"
-
-          RADAR_RETENTION_HIGH_DAYS:
-            "365"
-
-        run: python radar_cleanup.py

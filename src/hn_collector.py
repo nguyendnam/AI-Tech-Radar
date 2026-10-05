@@ -1,23 +1,29 @@
 from datetime import datetime, timezone
+
 import requests
 
 from src.config import MAX_HN_STORIES, TECH_KEYWORDS
+from src.scoring import keyword_match
 
 BASE = "https://hacker-news.firebaseio.com/v0"
 
 
 def _is_relevant(title: str) -> bool:
     t = title.lower()
-    return any(keyword in t for keyword in TECH_KEYWORDS)
+    return any(keyword_match(keyword, t) for keyword in TECH_KEYWORDS)
 
 
 def collect_hacker_news() -> list[dict]:
-    ids = requests.get(f"{BASE}/topstories.json", timeout=20).json()
+    response = requests.get(f"{BASE}/topstories.json", timeout=20)
+    response.raise_for_status()
+    ids = response.json()
     items = []
 
     for item_id in ids[:MAX_HN_STORIES]:
         try:
-            data = requests.get(f"{BASE}/item/{item_id}.json", timeout=20).json()
+            response = requests.get(f"{BASE}/item/{item_id}.json", timeout=20)
+            response.raise_for_status()
+            data = response.json()
         except Exception as exc:
             print(f"[WARN] HN item {item_id}: {exc}")
             continue

@@ -1,7 +1,9 @@
-from datetime import datetime, timezone
+from datetime import timezone
+
+import feedparser
+import requests
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
-import feedparser
 
 
 def _clean_html(value: str) -> str:
@@ -10,7 +12,7 @@ def _clean_html(value: str) -> str:
     return BeautifulSoup(value, "html.parser").get_text(" ", strip=True)
 
 
-def _parse_date(entry) -> str:
+def _parse_date(entry) -> str | None:
     for key in ("published", "updated", "created"):
         value = entry.get(key)
         if value:
@@ -19,13 +21,15 @@ def _parse_date(entry) -> str:
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 return dt.astimezone(timezone.utc).isoformat()
-            except Exception:
-                pass
-    return datetime.now(timezone.utc).isoformat()
+            except (ValueError, TypeError, OverflowError):
+                continue
+    return None
 
 
 def collect_feed(feed_config: dict) -> list[dict]:
-    parsed = feedparser.parse(feed_config["url"])
+    response = requests.get(feed_config["url"], timeout=30)
+    response.raise_for_status()
+    parsed = feedparser.parse(response.content)
     items = []
 
     if getattr(parsed, "bozo", False):
@@ -34,10 +38,9 @@ def collect_feed(feed_config: dict) -> list[dict]:
     for entry in parsed.entries[: feed_config.get("max_items", 10)]:
         url = entry.get("link", "").strip()
         title = _clean_html(entry.get("title", "")).strip()
-        excerpt = _clean_html(
-            entry.get("summary", "")
-            or entry.get("description", "")
-        )[:5000]
+        excerpt = _clean_html(entry.get("summary", "") or entry.get("description", ""))[
+            :5000
+        ]
 
         if not url or not title:
             continue

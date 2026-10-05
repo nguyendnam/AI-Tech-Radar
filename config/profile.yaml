@@ -1,7 +1,4 @@
-# ============================================================
 # AI TECH RADAR PROFILE
-# ============================================================
-
 
 high_priority_keywords:
 
@@ -35,7 +32,6 @@ high_priority_keywords:
   - devops
   - cybersecurity
 
-
 medium_priority_keywords:
 
   - python
@@ -59,10 +55,7 @@ medium_priority_keywords:
   - multimodal
   - benchmark
 
-
-# ============================================================
 # GITHUB DISCOVERY
-# ============================================================
 
 github_searches:
 
@@ -84,7 +77,6 @@ github_searches:
   - type: GITHUB_REPO
     query: '"browser extension" ai in:name,description,readme stars:>5'
 
-
   # Programming Language candidates
 
   - type: LANGUAGE_CANDIDATE
@@ -93,10 +85,7 @@ github_searches:
   - type: LANGUAGE_CANDIDATE
     query: 'compiler interpreter in:name,description stars:>5'
 
-
-# ============================================================
 # RELEASE WATCHLIST
-# ============================================================
 
 github_release_watchlist:
 
@@ -118,10 +107,7 @@ github_release_watchlist:
   - openai/openai-python
   - googleapis/python-genai
 
-
-# ============================================================
 # PYPI
-# ============================================================
 
 pypi_keywords:
 
@@ -142,10 +128,7 @@ pypi_keywords:
   - document
   - ocr
 
-
-# ============================================================
 # LIMITS - GIỮ FREE TIER
-# ============================================================
 
 limits:
 
@@ -157,24 +140,19 @@ limits:
 
   pypi_items: 50
 
-
   # Gemini tối đa 25 candidate mỗi lần chạy.
   ai_analyses_per_run: 25
-
 
   # Candidate có cheap score thấp hơn mức này
   # sẽ không gọi Gemini.
   min_prefilter_score: 4.0
 
-
   # AI phân tích xong nhưng final score quá thấp
   # thì không lưu vào database.
   min_store_score: 4.5
 
-
   # Chỉ gửi Telegram từ mức này.
   min_digest_score: 6.5
 
-
   # Số technology signal tối đa/ngày.
-  radar_digest_items: 12
+  digest_items: 12

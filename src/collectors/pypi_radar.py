@@ -3,15 +3,13 @@ from email.utils import (
 )
 
 import feedparser
+import requests
 
-from src.radar.profile import (
+from src.profile import (
     load_profile,
 )
 
-
-PYPI_NEWEST = (
-    "https://pypi.org/rss/packages.xml"
-)
+PYPI_NEWEST = "https://pypi.org/rss/packages.xml"
 
 
 def normalize_date(value):
@@ -20,16 +18,9 @@ def normalize_date(value):
         return None
 
     try:
-
-        return (
-            parsedate_to_datetime(
-                value
-            )
-            .isoformat()
-        )
+        return parsedate_to_datetime(value).isoformat()
 
     except Exception:
-
         return None
 
 
@@ -37,18 +28,13 @@ def collect_pypi_packages() -> list[dict]:
 
     profile = load_profile()
 
-
     keywords = [
-
         str(keyword).lower()
-
-        for keyword
-        in profile.get(
+        for keyword in profile.get(
             "pypi_keywords",
             [],
         )
     ]
-
 
     limit = int(
         profile.get(
@@ -60,102 +46,38 @@ def collect_pypi_packages() -> list[dict]:
         )
     )
 
-
-    feed = feedparser.parse(
-        PYPI_NEWEST
-    )
-
+    response = requests.get(PYPI_NEWEST, timeout=30)
+    response.raise_for_status()
+    feed = feedparser.parse(response.content)
 
     results = []
 
+    for entry in feed.entries[:limit]:
+        title = entry.get("title") or ""
 
-    for entry in feed.entries[
-        :limit
-    ]:
+        summary = entry.get("summary") or ""
 
-        title = (
-            entry.get(
-                "title"
-            )
-            or ""
-        )
+        haystack = (f"{title} {summary}").lower()
 
-
-        summary = (
-            entry.get(
-                "summary"
-            )
-            or ""
-        )
-
-
-        haystack = (
-            f"{title} {summary}"
-        ).lower()
-
-
-        if not any(
-            keyword in haystack
-            for keyword in keywords
-        ):
-
+        if not any(keyword in haystack for keyword in keywords):
             continue
 
-
-        url = (
-            entry.get(
-                "link"
-            )
-            or ""
-        )
-
+        url = entry.get("link") or ""
 
         results.append(
             {
-
-                "source_platform":
-                    "pypi",
-
-
-                "external_id":
-                    url or title,
-
-
-                "item_type_hint":
-                    "PACKAGE",
-
-
-                "name":
-                    title,
-
-
-                "title":
-                    title,
-
-
-                "description":
-                    summary[:3000],
-
-
-                "url":
-                    url,
-
-
-                "published_at":
-                    normalize_date(
-                        entry.get(
-                            "published"
-                        )
-                    ),
-
-
+                "source_platform": "pypi",
+                "external_id": url or title,
+                "item_type_hint": "PACKAGE",
+                "name": title,
+                "title": title,
+                "description": summary[:3000],
+                "url": url,
+                "published_at": normalize_date(entry.get("published")),
                 "metadata": {
-
-                    "registry":
-                        "PyPI",
+                    "registry": "PyPI",
                 },
             }
         )
-
 
     return results

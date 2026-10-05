@@ -1,5 +1,8 @@
 .env
 .venv/
+.test-env/
+node_modules/
+.wrangler/
 venv/
 __pycache__/
 *.pyc
