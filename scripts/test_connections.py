@@ -14,7 +14,9 @@ from src.database import get_client as get_database
 
 def main():
     response = get_client().models.generate_content(
-        model=GEMINI_MODEL, contents="Say OK"
+        model=GEMINI_MODEL,
+        contents="Say OK",
+        config={"automatic_function_calling": {"disable": True}},
     )
     if not response.text:
         raise RuntimeError("Gemini returned empty text")

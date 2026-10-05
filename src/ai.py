@@ -3,9 +3,12 @@
 import json
 import math
 import re
+import time
+from dataclasses import dataclass
 from functools import lru_cache
 
 from google import genai
+from google.genai import errors, types
 
 from src.config import GEMINI_API_KEY, GEMINI_MODEL
 from src.profile import load_profile
@@ -36,7 +39,111 @@ WEIGHTS = {
 def get_client():
     if not GEMINI_API_KEY:
         raise RuntimeError("Thiếu GEMINI_API_KEY.")
-    return genai.Client(api_key=GEMINI_API_KEY)
+    # Retry explicitly below so every HTTP attempt counts toward the run budget.
+    return genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options=types.HttpOptions(
+            timeout=60000, retry_options=types.HttpRetryOptions(attempts=1)
+        ),
+    )
+
+
+class TemporaryAIError(RuntimeError):
+    """Leave this candidate for a future collection, without discarding saved rows."""
+
+
+class AIBudgetExhausted(TemporaryAIError):
+    pass
+
+
+class PermanentAIError(RuntimeError):
+    pass
+
+
+class AIConfigurationError(PermanentAIError):
+    pass
+
+
+def api_error_message(exc):
+    # APIError.__str__ includes the entire response payload. Log only its message.
+    message = str(exc.message or "No API message")
+    if GEMINI_API_KEY:
+        message = message.replace(GEMINI_API_KEY, "[redacted]")
+    message = re.sub(r"AIza[\w-]+", "[redacted]", message)
+    message = re.sub(r"(?i)(key|token)=([^\s&]+)", r"\1=[redacted]", message)
+    return (
+        f"Gemini HTTP {exc.code} {exc.status or ''}: {' '.join(message.split())[:600]}"
+    )
+
+
+@dataclass
+class AnalysisSession:
+    """One paced request budget, shared across candidates and retries."""
+
+    limit: int = 25
+    interval: float = 6.0
+    requests: int = 0
+    last_request: float | None = None
+    paused: bool = False
+
+    def generate(self, prompt):
+        for attempt in range(3):
+            if self.requests >= self.limit or self.paused:
+                raise AIBudgetExhausted(
+                    "Ngân sách AI hết hoặc đã tạm dừng sau lỗi quota."
+                )
+            if self.last_request is not None:
+                time.sleep(
+                    max(0, self.interval - (time.monotonic() - self.last_request))
+                )
+            self.requests += 1
+            self.last_request = time.monotonic()
+            try:
+                return get_client().models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                            disable=True
+                        ),
+                    ),
+                )
+            except errors.APIError as exc:
+                message = api_error_message(exc)
+                if exc.code not in {429, 500, 502, 503, 504}:
+                    error_type = (
+                        AIConfigurationError
+                        if exc.code in {401, 403, 404}
+                        else PermanentAIError
+                    )
+                    raise error_type(message) from None
+                if attempt == 2:
+                    self.paused = exc.code == 429
+                    raise TemporaryAIError(message) from None
+                delay = 10 * 2**attempt
+                # Honor Google's structured RetryInfo without waiting indefinitely.
+                details = (
+                    exc.details.get("error", exc.details)
+                    if isinstance(exc.details, dict)
+                    else {}
+                )
+                for detail in details.get("details", []):
+                    retry_delay = detail.get("retryDelay")
+                    if retry_delay:
+                        try:
+                            delay = max(
+                                delay, float(str(retry_delay).removesuffix("s"))
+                            )
+                        except ValueError:
+                            continue
+                if delay > 60:
+                    self.paused = exc.code == 429
+                    raise TemporaryAIError(
+                        message + "; thử lại ở lượt collect sau."
+                    ) from None
+                print(f"[WARN] {message}; retry sau {delay:g}s")
+                time.sleep(delay)
 
 
 def safe_score(value):
@@ -74,7 +181,7 @@ def normalize_analysis(data, candidate):
     return result
 
 
-def analyze_item(candidate):
+def analyze_item(candidate, session=None):
     profile = load_profile()
     prompt = f"""Bạn đánh giá tin tức và công nghệ cho một lập trình viên.
 Ưu tiên: {profile.get("high_priority_keywords", [])}.
@@ -88,11 +195,7 @@ summary (2-4 câu), why_it_matters (1-3 câu), radar_status (WATCH/ASSESS/TRIAL)
 ADOPT chỉ do người dùng quyết định.
 DỮ LIỆU: {json.dumps(candidate, ensure_ascii=False, default=str)[:16000]}
 """
-    response = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config={"response_mime_type": "application/json"},
-    )
+    response = (session or AnalysisSession()).generate(prompt)
     text = (response.text or "").strip()
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
     return normalize_analysis(json.loads(text), candidate)

@@ -140,7 +140,7 @@ limits:
 
   pypi_items: 50
 
-  # Gemini tối đa 25 candidate mỗi lần chạy.
+  # Tổng request Gemini mỗi lượt, bao gồm cả retry.
   ai_analyses_per_run: 25
 
   # Candidate có cheap score thấp hơn mức này

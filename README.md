@@ -26,7 +26,7 @@ python digest.py
 python cleanup.py
 ```
 
-- `collect.py`: mọi nguồn dùng chung tối đa 25 lần gọi Gemini mỗi lượt, kể cả lần gọi thất bại. Chia lượt phân tích giữa các loại nội dung để model/repo không chiếm hết quota.
+- `collect.py`: mọi nguồn dùng chung tối đa 25 HTTP request Gemini mỗi lượt, bao gồm retry và request thất bại. Nghỉ tối thiểu 6 giây giữa request, retry tối đa 3 lần thử cho lỗi 429/500/502/503/504 với thời gian chờ tăng dần. Chia lượt phân tích giữa các loại nội dung để model/repo không chiếm hết quota.
 - `digest.py`: một luồng bản tin, tối đa 12 mục; cân bằng loại nội dung. Chỉ cập nhật `sent_at` sau khi gửi thành công, mục thất bại được thử lại lần chạy sau.
 - `cleanup.py`: giữ mục dưới 7 điểm trong 30 ngày, từ 7 đến dưới 9 trong 90 ngày, từ 9 trở lên trong 365 ngày. Không xóa mục `saved=true` hoặc `ADOPT`. Có thể đổi qua `RETENTION_*_DAYS`.
 
@@ -86,7 +86,7 @@ scheduler/                         # Cloudflare cron → GitHub Actions
 ## Kiểm tra
 
 ```sh
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 ruff check src scripts tests collect.py digest.py cleanup.py
 ruff format --check src scripts tests collect.py digest.py cleanup.py
 python -m unittest discover -s tests -v
@@ -96,6 +96,8 @@ python scripts/test_connections.py
 
 Unit tests chạy offline, mock các dịch vụ ngoài. SQL được kiểm tra cú pháp bằng PostgreSQL parser; cần chạy thực tế trên Supabase để xác nhận quyền và môi trường của project. `test_connections.py` đọc bảng mới, kiểm tra Gemini và Telegram getChat, không gửi bản tin hay ghi database.
 
-Nếu Telegram đã nhận tin nhưng kết nối timeout hoặc việc đánh dấu database thất bại, lần retry vẫn có thể gửi trùng; Telegram không hỗ trợ transaction chung với Supabase. Nguồn nào lỗi được ghi warning và nguồn khác tiếp tục; không có dữ liệu từ bất kỳ nguồn nào hoặc lỗi xử lý/lưu/gửi sẽ làm job thất bại.
+Nếu Telegram đã nhận tin nhưng kết nối timeout hoặc việc đánh dấu database thất bại, lần retry vẫn có thể gửi trùng; Telegram không hỗ trợ transaction chung với Supabase. Nguồn nào lỗi được ghi warning và nguồn khác tiếp tục. Lỗi Gemini tạm thời ghi `deferred`, không làm hỏng lượt collect nếu đã phân tích thành công nội dung khác; candidate chưa lưu có thể được thử lại nếu nguồn còn trả về ở lượt sau. Nếu quota 429 vẫn lỗi sau retry, ngừng gọi AI trong lượt đó. Nếu mọi lần phân tích đều lỗi tạm thời, cấu hình key/model sai, không có dữ liệu nguồn hoặc có lỗi xử lý/lưu/gửi, job vẫn thất bại. Log Gemini có HTTP code, status và thông báo đã che API key.
+
+`checks.yml` chạy lint, format, Python tests và Worker tests khi push hoặc mở PR. Nó không dùng secrets, không gọi Gemini thật và không gửi Telegram; giữ workflow này để phát hiện lỗi code trước khi các job theo lịch chạy.
 
 Gemini generate-content/JSON output: https://ai.google.dev/api/generate-content

@@ -5,7 +5,13 @@ from collections import defaultdict, deque
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from src import database
-from src.ai import analyze_item
+from src.ai import (
+    AIConfigurationError,
+    AnalysisSession,
+    PermanentAIError,
+    TemporaryAIError,
+    analyze_item,
+)
 from src.collectors.github_discovery import collect_github_repositories
 from src.collectors.github_releases import collect_github_releases
 from src.collectors.huggingface_radar import collect_huggingface
@@ -109,6 +115,8 @@ def rank_candidates(candidates):
 def collect():
     limits = load_profile()["limits"]
     analyzed = created = observed = errors = 0
+    successful = deferred = 0
+    session = AnalysisSession(limit=limits["ai_analyses_per_run"])
     database.get_client()  # Validate storage configuration before collecting.
     for item in rank_candidates(collect_all()):
         try:
@@ -119,24 +127,42 @@ def collect():
                 continue
             if prefilter_score(item) < limits["min_prefilter_score"]:
                 continue
-            if analyzed >= limits["ai_analyses_per_run"]:
+            if (
+                analyzed >= limits["ai_analyses_per_run"]
+                or session.requests >= session.limit
+                or session.paused
+            ):
                 continue  # Still refresh observations of known items.
             analyzed += 1  # Failed requests also consume the budget.
-            analysis = analyze_item(item)
+            analysis = analyze_item(item, session=session)
+            successful += 1
             if (
                 analysis["relevant"]
                 and analysis["final_score"] >= limits["min_store_score"]
             ):
                 database.save_item(item, analysis)
                 created += 1
+        except TemporaryAIError as exc:
+            deferred += 1
+            print(f"[WARN] Deferred {item['title']}: {exc}")
+        except AIConfigurationError:
+            raise
+        except PermanentAIError as exc:
+            errors += 1
+            print(f"[ERROR] {item['title']}: {exc}")
         except Exception as exc:
             errors += 1
             print(f"[ERROR] {item['title']}: {type(exc).__name__}")
     print(
-        f"[DONE] analyzed={analyzed} saved={created} observed={observed} errors={errors}"
+        f"[DONE] analyzed={analyzed} requests={session.requests} saved={created} "
+        f"observed={observed} deferred={deferred} errors={errors}"
     )
     if errors:
         raise RuntimeError(f"Collection có {errors} lỗi; xem log bên trên.")
+    if deferred and not successful:
+        raise RuntimeError(
+            "Gemini tạm thời không xử lý được mục nào; xem warning và thử lại sau."
+        )
 
 
 def digest():
