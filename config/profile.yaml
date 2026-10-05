@@ -1,7 +1,6 @@
 # AI TECH RADAR PROFILE
 
 high_priority_keywords:
-
   - ai agent
   - coding agent
   - llm
@@ -9,10 +8,8 @@ high_priority_keywords:
   - model context protocol
   - rag
   - code generation
-
   - developer tools
   - github
-
   - go
   - golang
   - postgresql
@@ -21,36 +18,27 @@ high_priority_keywords:
   - docker
   - next.js
   - react
-
   - browser extension
   - knowledge management
-
   - document parsing
   - ocr
-
   - system design
   - devops
   - cybersecurity
 
 medium_priority_keywords:
-
   - python
   - typescript
   - javascript
   - rust
-
   - database
   - backend
   - frontend
-
   - distributed systems
   - compiler
-
   - programming language
-
   - vector database
   - embeddings
-
   - inference
   - multimodal
   - benchmark
@@ -58,101 +46,72 @@ medium_priority_keywords:
 # GITHUB DISCOVERY
 
 github_searches:
-
   - type: GITHUB_REPO
     query: '"ai agent" in:name,description,readme stars:>10'
-
   - type: GITHUB_REPO
     query: '"coding agent" in:name,description,readme stars:>10'
-
   - type: GITHUB_REPO
     query: 'mcp in:name,description,readme stars:>10'
-
   - type: GITHUB_REPO
     query: 'rag in:name,description,readme stars:>20'
-
   - type: GITHUB_REPO
     query: '"developer tool" in:name,description,readme stars:>10'
-
   - type: GITHUB_REPO
     query: '"browser extension" ai in:name,description,readme stars:>5'
-
   # Programming Language candidates
-
   - type: LANGUAGE_CANDIDATE
     query: '"programming language" in:name,description stars:>5'
-
   - type: LANGUAGE_CANDIDATE
     query: 'compiler interpreter in:name,description stars:>5'
 
 # RELEASE WATCHLIST
 
 github_release_watchlist:
-
   - golang/go
   - python/cpython
   - rust-lang/rust
   - nodejs/node
-
   - facebook/react
   - vercel/next.js
-
   - supabase/supabase
-
   - docker/cli
   - docker/compose
-
   - cloudflare/workers-sdk
-
   - openai/openai-python
   - googleapis/python-genai
 
 # PYPI
 
 pypi_keywords:
-
   - agent
   - llm
   - mcp
   - rag
-
   - openai
   - gemini
-
   - vector
   - embedding
-
   - postgres
   - supabase
-
   - document
   - ocr
 
 # LIMITS - GIỮ FREE TIER
 
 limits:
-
   github_results_per_query: 5
-
   hf_models: 15
-
   hf_spaces: 10
-
   pypi_items: 50
-
   # Tổng request Gemini mỗi lượt, bao gồm cả retry.
   ai_analyses_per_run: 25
-
   # Candidate có cheap score thấp hơn mức này
   # sẽ không gọi Gemini.
   min_prefilter_score: 4.0
-
   # AI phân tích xong nhưng final score quá thấp
   # thì không lưu vào database.
   min_store_score: 4.5
-
   # Chỉ gửi Telegram từ mức này.
   min_digest_score: 6.5
-
   # Số technology signal tối đa/ngày.
   digest_items: 12

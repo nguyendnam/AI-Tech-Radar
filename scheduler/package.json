@@ -1,16 +1,14 @@
 {
-    "name": "ai-tech-radar-scheduler",
-    "version": "1.0.0",
-    "private": true,
-    "type": "module",
-  
-    "scripts": {
-      "test": "node --test src/index.test.js",
-      "dev": "wrangler dev --test-scheduled",
-      "deploy": "wrangler deploy"
-    },
-  
-    "devDependencies": {
-      "wrangler": "^4.0.0"
-    }
+  "name": "ai-tech-radar-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test src/index.test.js",
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
+}

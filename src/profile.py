@@ -9,10 +9,7 @@ PROFILE_PATH = Path(__file__).resolve().parents[1] / "config" / "profile.yaml"
 @lru_cache(maxsize=1)
 def load_profile() -> dict:
 
-    with PROFILE_PATH.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
+    with PROFILE_PATH.open("r", encoding="utf-8") as file:
         profile = yaml.safe_load(file) or {}
     limits = profile.get("limits", {})
     for key in ("ai_analyses_per_run", "digest_items"):

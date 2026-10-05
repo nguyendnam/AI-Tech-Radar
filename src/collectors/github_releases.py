@@ -1,27 +1,14 @@
 from src.http import github_session
-from src.profile import (
-    load_profile,
-)
+from src.profile import load_profile
 
 
 def collect_github_releases() -> list[dict]:
 
     profile = load_profile()
 
-    repositories = profile.get(
-        "github_release_watchlist",
-        [],
-    )
+    repositories = profile.get("github_release_watchlist", [])
 
     session = github_session()
-
-    session.headers.update(
-        {
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "ai-tech-radar",
-        }
-    )
 
     results = []
 
@@ -29,10 +16,7 @@ def collect_github_releases() -> list[dict]:
         url = f"https://api.github.com/repos/{repository}/releases/latest"
 
         try:
-            response = session.get(
-                url,
-                timeout=30,
-            )
+            response = session.get(url, timeout=30)
 
             # Một số repo không dùng GitHub Releases.
 
@@ -58,14 +42,8 @@ def collect_github_releases() -> list[dict]:
                     "metadata": {
                         "repository": repository,
                         "tag": data.get("tag_name"),
-                        "prerelease": data.get(
-                            "prerelease",
-                            False,
-                        ),
-                        "draft": data.get(
-                            "draft",
-                            False,
-                        ),
+                        "prerelease": data.get("prerelease", False),
+                        "draft": data.get("draft", False),
                     },
                 }
             )

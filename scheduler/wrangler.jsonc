@@ -1,56 +1,21 @@
 {
-    "$schema": "./node_modules/wrangler/config-schema.json",
-  
-    "name": "ai-tech-radar-scheduler",
-  
-    "main": "src/index.js",
-  
-    "compatibility_date": "2026-09-20",
-  
-  
-    "observability": {
-      "enabled": true
-    },
-  
-  
-    // =========================================================
-    // Không bí mật
-    // =========================================================
-  
-    "vars": {
-  
-      "GITHUB_OWNER": "nguyendnam",
-  
-      "GITHUB_REPO": "AI-Tech-Radar",
-  
-      "GITHUB_REF": "main"
-    },
-  
-  
-    // =========================================================
-    // CLOUDFLARE CRON
-    //
-    // Cloudflare dùng UTC
-    // Việt Nam = UTC+7
-    // =========================================================
-  
-    "triggers": {
-  
-      "crons": [
-  
-        // 23:45 UTC
-        // = 06:45 Việt Nam ngày hôm sau
-        "45 23 * * *",
-  
-  
-        // 00:30 UTC
-        // = 07:30 Việt Nam
-        "30 0 * * *",
-  
-  
-        // 20:00 UTC Thứ Bảy
-        // = 03:00 Chủ Nhật Việt Nam
-        "0 20 * * 6"
-      ]
-    }
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ai-tech-radar-scheduler",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-20",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "GITHUB_OWNER": "nguyendnam",
+    "GITHUB_REPO": "AI-Tech-Radar",
+    "GITHUB_REF": "main"
+  },
+  "triggers": {
+    "crons": [
+      "45 23 * * *",
+      "30 0 * * *",
+      "0 20 * * 6"
+    ]
   }
+}

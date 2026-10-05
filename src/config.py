@@ -14,11 +14,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 RSS_FEEDS = [
-    {
-        "name": "OpenAI News",
-        "url": "https://openai.com/news/rss.xml",
-        "max_items": 8,
-    },
+    {"name": "OpenAI News", "url": "https://openai.com/news/rss.xml", "max_items": 8},
     {
         "name": "Google AI",
         "url": "https://blog.google/technology/ai/rss/",
@@ -34,21 +30,9 @@ RSS_FEEDS = [
         "url": "https://www.microsoft.com/en-us/research/feed/",
         "max_items": 8,
     },
-    {
-        "name": "arXiv cs.AI",
-        "url": "https://rss.arxiv.org/rss/cs.AI",
-        "max_items": 8,
-    },
-    {
-        "name": "arXiv cs.LG",
-        "url": "https://rss.arxiv.org/rss/cs.LG",
-        "max_items": 8,
-    },
-    {
-        "name": "arXiv cs.CL",
-        "url": "https://rss.arxiv.org/rss/cs.CL",
-        "max_items": 8,
-    },
+    {"name": "arXiv cs.AI", "url": "https://rss.arxiv.org/rss/cs.AI", "max_items": 8},
+    {"name": "arXiv cs.LG", "url": "https://rss.arxiv.org/rss/cs.LG", "max_items": 8},
+    {"name": "arXiv cs.CL", "url": "https://rss.arxiv.org/rss/cs.CL", "max_items": 8},
 ]
 
 TECH_KEYWORDS = [

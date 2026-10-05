@@ -9,10 +9,7 @@ token = os.getenv("TELEGRAM_BOT_TOKEN")
 if not token:
     raise RuntimeError("Hãy điền TELEGRAM_BOT_TOKEN vào .env trước.")
 
-resp = requests.get(
-    f"https://api.telegram.org/bot{token}/getUpdates",
-    timeout=30,
-)
+resp = requests.get(f"https://api.telegram.org/bot{token}/getUpdates", timeout=30)
 resp.raise_for_status()
 data = resp.json()
 

@@ -168,10 +168,7 @@ def publication_text(item: dict) -> str:
     )
 
 
-def select_balanced(
-    rows: list[dict],
-    total_limit: int,
-) -> list[dict]:
+def select_balanced(rows: list[dict], total_limit: int) -> list[dict]:
     """
     Chọn signal theo quota từng loại
     để Telegram không bị toàn model
@@ -184,20 +181,11 @@ def select_balanced(
     selected = []
 
     for row in rows:
-        item_type = row.get(
-            "item_type",
-            "OTHER",
-        )
+        item_type = row.get("item_type", "OTHER")
 
-        quota = TYPE_QUOTAS.get(
-            item_type,
-            2,
-        )
+        quota = TYPE_QUOTAS.get(item_type, 2)
 
-        used = counts.get(
-            item_type,
-            0,
-        )
+        used = counts.get(item_type, 0)
 
         if used >= quota:
             continue
@@ -246,20 +234,11 @@ def metadata_text(item: dict) -> str:
 
 
 def build_message(item: dict) -> str:
-    item_type = item.get(
-        "item_type",
-        "OTHER",
-    )
+    item_type = item.get("item_type", "OTHER")
 
-    icon = TYPE_ICONS.get(
-        item_type,
-        "📡",
-    )
+    icon = TYPE_ICONS.get(item_type, "📡")
 
-    label = TYPE_LABELS.get(
-        item_type,
-        "TECH SIGNAL",
-    )
+    label = TYPE_LABELS.get(item_type, "TECH SIGNAL")
 
     score = float(item.get("final_score") or 0)
 

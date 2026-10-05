@@ -1,4 +1,5 @@
 .env
+.dev.vars
 .venv/
 .test-env/
 node_modules/

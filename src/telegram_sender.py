@@ -2,18 +2,10 @@ import time
 
 import requests
 
-from src.config import (
-    TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
-)
-
-# MESSAGE SPLITTER
+from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 
-def _split_message(
-    text: str,
-    max_len: int = 3500,
-) -> list[str]:
+def _split_message(text: str, max_len: int = 3500) -> list[str]:
     """
     Telegram có giới hạn độ dài message.
 
@@ -59,14 +51,7 @@ def _split_message(
     return chunks
 
 
-# RETRY
-
-
-def _send_with_retry(
-    endpoint: str,
-    payload: dict,
-    retries: int = 3,
-):
+def _send_with_retry(endpoint: str, payload: dict, retries: int = 3):
     """
     Gửi Telegram có retry.
 
@@ -78,16 +63,9 @@ def _send_with_retry(
 
     last_error = None
 
-    for attempt in range(
-        1,
-        retries + 1,
-    ):
+    for attempt in range(1, retries + 1):
         try:
-            response = requests.post(
-                endpoint,
-                json=payload,
-                timeout=30,
-            )
+            response = requests.post(endpoint, json=payload, timeout=30)
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt == retries:
                     raise RuntimeError(f"Telegram failed: HTTP {response.status_code}")
@@ -125,12 +103,7 @@ def _send_with_retry(
     raise last_error
 
 
-# PUBLIC FUNCTION
-
-
-def send_telegram(
-    text: str,
-):
+def send_telegram(text: str):
     """
     Hàm chính để gửi Telegram.
     """

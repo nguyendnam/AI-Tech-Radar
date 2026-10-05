@@ -1,13 +1,9 @@
-from email.utils import (
-    parsedate_to_datetime,
-)
+from email.utils import parsedate_to_datetime
 
 import feedparser
 import requests
 
-from src.profile import (
-    load_profile,
-)
+from src.profile import load_profile
 
 PYPI_NEWEST = "https://pypi.org/rss/packages.xml"
 
@@ -28,23 +24,9 @@ def collect_pypi_packages() -> list[dict]:
 
     profile = load_profile()
 
-    keywords = [
-        str(keyword).lower()
-        for keyword in profile.get(
-            "pypi_keywords",
-            [],
-        )
-    ]
+    keywords = [str(keyword).lower() for keyword in profile.get("pypi_keywords", [])]
 
-    limit = int(
-        profile.get(
-            "limits",
-            {},
-        ).get(
-            "pypi_items",
-            50,
-        )
-    )
+    limit = int(profile.get("limits", {}).get("pypi_items", 50))
 
     response = requests.get(PYPI_NEWEST, timeout=30)
     response.raise_for_status()
@@ -74,9 +56,7 @@ def collect_pypi_packages() -> list[dict]:
                 "description": summary[:3000],
                 "url": url,
                 "published_at": normalize_date(entry.get("published")),
-                "metadata": {
-                    "registry": "PyPI",
-                },
+                "metadata": {"registry": "PyPI"},
             }
         )
 

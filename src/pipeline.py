@@ -14,8 +14,8 @@ from src.ai import (
 )
 from src.collectors.github_discovery import collect_github_repositories
 from src.collectors.github_releases import collect_github_releases
-from src.collectors.huggingface_radar import collect_huggingface
-from src.collectors.pypi_radar import collect_pypi_packages
+from src.collectors.huggingface import collect_huggingface
+from src.collectors.pypi import collect_pypi_packages
 from src.config import RSS_FEEDS
 from src.digest import build_message, select_balanced
 from src.hn_collector import collect_hacker_news
